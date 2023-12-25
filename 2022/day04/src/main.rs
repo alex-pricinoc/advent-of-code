@@ -1,3 +1,33 @@
+use itertools::Itertools;
+use std::ops::RangeInclusive;
+
+trait InclusiveRangeExt {
+    fn contains_range(&self, other: &Self) -> bool;
+
+    fn contains_or_is_contained(&self, other: &Self) -> bool {
+        self.contains_range(other) || other.contains_range(self)
+    }
+
+    fn overlaps(&self, other: &Self) -> bool;
+
+    fn overlaps_or_is_overlapped(&self, other: &Self) -> bool {
+        self.overlaps(other) || other.overlaps(self)
+    }
+}
+
+impl<T> InclusiveRangeExt for RangeInclusive<T>
+where
+    T: PartialOrd,
+{
+    fn contains_range(&self, other: &Self) -> bool {
+        self.contains(other.start()) && self.contains(other.end())
+    }
+
+    fn overlaps(&self, other: &Self) -> bool {
+        self.contains(other.start()) || self.contains(other.end())
+    }
+}
+
 fn main() {
     let input = include_str!("../input.txt");
 
@@ -5,54 +35,45 @@ fn main() {
     println!("Part 2: {}", part_2(input));
 }
 
-fn part_1(input: &str) -> i32 {
-    input
-        .trim()
+fn part_1(input: &str) -> usize {
+    let redundant = input
         .lines()
-        .map(Assignment::parse)
-        .filter(|a| {
-            a.left.0 <= a.right.0 && a.left.1 >= a.right.1
-                || a.right.0 <= a.left.0 && a.right.1 >= a.left.1
+        .map(|l| {
+            l.split(',')
+                .map(|r| {
+                    r.split('-')
+                        .map(|n| n.parse().expect("range start/end should be u32"))
+                        .collect_tuple::<(u32, u32)>()
+                        .map(|(s, e)| s..=e)
+                        .expect("each range should have a start and end")
+                })
+                .collect_tuple::<(_, _)>()
+                .expect("each line must have a pair of ranges")
         })
-        .count()
-        .try_into()
-        .unwrap()
+        .filter(|(a, b)| a.contains_or_is_contained(b))
+        .count();
+
+    redundant
 }
-fn part_2(input: &str) -> i32 {
-    input
-        .trim()
+fn part_2(input: &str) -> usize {
+    let redundant = input
         .lines()
-        .map(Assignment::parse)
-        .filter(|a| a.right.0 <= a.left.1)
-        .count()
-        .try_into()
-        .unwrap()
-}
+        .map(|l| {
+            l.split(',')
+                .map(|r| {
+                    r.split('-')
+                        .map(|n| n.parse().expect("range start/end should be u32"))
+                        .collect_tuple::<(u32, u32)>()
+                        .map(|(start, end)| RangeInclusive::new(start, end))
+                        .expect("each range should have a start and end")
+                })
+                .collect_tuple::<(_, _)>()
+                .expect("each line must have a pair of ranges")
+        })
+        .filter(|(a, b)| a.overlaps_or_is_overlapped(b))
+        .count();
 
-#[derive(Debug)]
-struct Assignment {
-    left: (i32, i32),
-    right: (i32, i32),
-}
-
-impl Assignment {
-    fn parse(s: &str) -> Self {
-        let (a, b) = s.split_once(",").unwrap();
-
-        let pair = a.split_once("-").unwrap();
-        let first = (pair.0.parse().unwrap(), pair.1.parse().unwrap());
-
-        let pair = b.split_once("-").unwrap();
-        let second = (pair.0.parse().unwrap(), pair.1.parse().unwrap());
-
-        let (left, right) = if first.0 < second.0 {
-            (first, second)
-        } else {
-            (second, first)
-        };
-
-        Self { left, right }
-    }
+    redundant
 }
 
 #[cfg(test)]
@@ -61,28 +82,28 @@ mod tests {
 
     #[test]
     fn part_1_test() {
-        let data = r#"
+        let data = "\
 2-4,6-8
 2-3,4-5
 5-7,7-9
 2-8,3-7
 6-6,4-6
 2-6,4-8
-          "#;
+";
 
         assert_eq!(part_1(data), 2);
     }
 
     #[test]
     fn part_2_test() {
-        let data = r#"
+        let data = "\
 2-4,6-8
 2-3,4-5
 5-7,7-9
 2-8,3-7
 6-6,4-6
 2-6,4-8
-              "#;
+";
 
         assert_eq!(part_2(data), 4);
     }
