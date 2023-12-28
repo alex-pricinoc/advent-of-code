@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::hash::Hash;
 
 fn main() {
     const INPUT: &str = include_str!("../input.txt");
@@ -8,33 +7,20 @@ fn main() {
     println!("Part 1: {}", part_2(INPUT));
 }
 
-fn part_1(data: &str) -> i32 {
-    let index = data
-        .as_bytes()
-        .windows(4)
-        .position(has_unique_elements)
-        .unwrap();
-
-    index as i32 + 4
+fn part_1(data: &str) -> usize {
+    find_marker(data, 4).unwrap()
 }
 
-fn part_2(data: &str) -> i32 {
-    let index = data
-        .as_bytes()
-        .windows(14)
-        .position(has_unique_elements)
-        .unwrap();
-
-    index as i32 + 14
+fn part_2(data: &str) -> usize {
+    find_marker(data, 14).unwrap()
 }
 
-fn has_unique_elements<T>(iter: T) -> bool
-where
-    T: IntoIterator,
-    T::Item: Eq + Hash,
-{
-    let mut uniq = HashSet::new();
-    iter.into_iter().all(|x| uniq.insert(x))
+fn find_marker(input: &str, size: usize) -> Option<usize> {
+    input
+        .as_bytes()
+        .windows(size)
+        .position(|window| window.iter().collect::<HashSet<_>>().len() == size)
+        .map(|pos| pos + size)
 }
 
 #[cfg(test)]
