@@ -1,73 +1,66 @@
-use std::convert::Infallible;
-use std::str::FromStr;
+use std::fmt;
 
-const LEFT: (i32, i32) = (-1, 0);
-const UP: (i32, i32) = (0, -1);
-const RIGHT: (i32, i32) = (1, 0);
-const DOWN: (i32, i32) = (0, 1);
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct GridCoord {
+    pub x: usize,
+    pub y: usize,
+}
 
-pub struct Forest {
+impl fmt::Debug for GridCoord {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "({}, {})", self.x, self.y)
+    }
+}
+
+impl From<(usize, usize)> for GridCoord {
+    fn from((x, y): (usize, usize)) -> Self {
+        Self { x, y }
+    }
+}
+
+pub struct Grid<T> {
     width: usize,
-
-    trees: Vec<char>,
+    height: usize,
+    data: Vec<T>,
 }
 
-impl Forest {
-    pub fn width(&self) -> i32 {
-        self.width as _
-    }
-
-    pub fn height(&self) -> i32 {
-        (self.trees.len() / self.width) as _
-    }
-
-    pub fn tree_at(&self, x: i32, y: i32) -> char {
-        self.trees[(x + y * self.width()) as usize]
-    }
-
-    fn tree_is_at_edge(&self, x: i32, y: i32) -> bool {
-        x == 0 || y == 0 || x == self.width() - 1 || y == self.height() - 1
-    }
-
-    pub fn tree_visible(&self, x: i32, y: i32) -> (bool, i32) {
-        let tree = self.tree_at(x, y);
-
-        let mut res = (false, 1);
-
-        for dir in [LEFT, UP, DOWN, RIGHT] {
-            let (mut x, mut y) = (x, y);
-            let (mut visible, mut score) = (true, 0);
-
-            loop {
-                if self.tree_is_at_edge(x, y) {
-                    break;
-                }
-
-                x += dir.0;
-                y += dir.1;
-                score += 1;
-
-                if tree <= self.tree_at(x, y) {
-                    visible = false;
-                    break;
-                }
-            }
-
-            res = (res.0 || visible, res.1 * score);
+impl<T> Grid<T> {
+    pub fn new(width: usize, height: usize, data: Vec<T>) -> Self {
+        Self {
+            width,
+            height,
+            data,
         }
-
-        res
     }
-}
 
-impl FromStr for Forest {
-    type Err = Infallible;
+    pub fn in_bounds(&self, coord: GridCoord) -> bool {
+        coord.x < self.width && coord.y < self.height
+    }
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let width = s.lines().next().unwrap().chars().count();
+    pub fn cell(&self, coord: GridCoord) -> Option<&T> {
+        // self.in_bounds(coord)
+        //     .then_some(&self.data[coord.y * self.width + coord.x])
+        if !self.in_bounds(coord) {
+            return None;
+        }
+        Some(&self.data[coord.y * self.width + coord.x])
+    }
 
-        let trees = s.lines().flat_map(|l| l.chars()).collect();
+    pub fn cell_mut(&mut self, coord: GridCoord) -> Option<&mut T> {
+        // self.in_bounds(coord)
+        //     .then_some(&mut self.data[coord.y * self.width + coord.x])
 
-        Ok(Self { width, trees })
+        if !self.in_bounds(coord) {
+            return None;
+        }
+        Some(&mut self.data[coord.y * self.width + coord.x])
+    }
+
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
+    pub fn height(&self) -> usize {
+        self.height
     }
 }
