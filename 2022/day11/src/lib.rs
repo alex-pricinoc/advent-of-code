@@ -1,21 +1,76 @@
-use std::collections::VecDeque;
-use std::fmt;
+use std::error::Error;
+use std::result;
+use std::str::FromStr;
 
+pub type Result<T> = result::Result<T, Box<dyn Error>>;
+
+#[derive(Debug, Clone)]
 pub struct Monkey {
-    pub items_inspected: usize,
-    pub items: VecDeque<u128>,
-    pub operation: Box<dyn Fn(u128) -> u128>,
-    pub test: Box<dyn Fn(u128) -> usize>,
+    pub items: Vec<u64>,
+    pub items_inspected: u64,
+    pub operation: Operation,
+    pub divisor: u64,
+    pub receiver_if_true: usize,
+    pub receiver_if_false: usize,
 }
 
-impl Monkey {
-    pub fn parse(i: &'static str) -> Self {
-        let mut lines = i.lines();
+#[derive(Clone, Copy, Debug)]
+pub enum Operation {
+    Add(Term, Term),
+    Mul(Term, Term),
+}
+
+impl Operation {
+    pub fn eval(self, old: u64) -> u64 {
+        match self {
+            Operation::Add(l, r) => l.eval(old) + r.eval(old),
+            Operation::Mul(l, r) => l.eval(old) * r.eval(old),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Term {
+    Old,
+    Constant(u64),
+}
+
+impl Term {
+    pub fn eval(self, old: u64) -> u64 {
+        match self {
+            Term::Old => old,
+            Term::Constant(c) => c,
+        }
+    }
+}
+
+impl FromStr for Term {
+    type Err = Box<dyn Error>;
+
+    fn from_str(s: &str) -> Result<Self> {
+        let term = match s {
+            "old" => Term::Old,
+            n => Term::Constant(
+                n.parse()
+                    .map_err(|err| format!("failed to parse '{:?}': {}", n, err))?,
+            ),
+        };
+
+        Ok(term)
+    }
+}
+
+impl FromStr for Monkey {
+    type Err = Box<dyn Error>;
+
+    fn from_str(s: &str) -> Result<Self> {
+        let mut lines = s.lines();
 
         lines.next().unwrap();
 
-        let items = lines.next().unwrap();
-        let items = items
+        let items = lines
+            .next()
+            .unwrap()
             .split_once("  Starting items: ")
             .unwrap()
             .1
@@ -27,79 +82,57 @@ impl Monkey {
 
         let operation = operation.split_once("  Operation: new = ").unwrap().1;
 
-        let (_, op, c) = (|| {
+        let (l, op, r) = (|| {
             let mut s = operation.splitn(3, ' ');
 
             Some((s.next()?, s.next()?, s.next()?))
         })()
         .unwrap();
 
-        let operation = move |old: u128| {
-            let c = match c {
-                "old" => old,
-                n => n.parse().unwrap(),
-            };
+        let l = l.parse()?;
+        let r = r.parse()?;
 
-            match op {
-                "+" => old + c,
-                "*" => {
-                    dbg!(old, c);
-
-                    old * c
-                }
-                _ => unreachable!(),
-            }
+        let op = match op {
+            "*" => Operation::Mul(l, r),
+            "+" => Operation::Add(l, r),
+            _ => unreachable!(),
         };
 
-        let test = lines.next().unwrap();
-
-        let divisor: usize = test
+        let divisor = lines
+            .next()
+            .unwrap()
             .split_once(" Test: divisible by ")
             .unwrap()
             .1
-            .parse()
-            .unwrap();
+            .parse()?;
 
-        let if_true = lines
+        let receiver_if_true = lines
             .next()
             .unwrap()
             .chars()
             .next_back()
             .unwrap()
             .to_digit(10)
-            .unwrap();
+            .unwrap()
+            .try_into()?;
 
-        let if_false = lines
+        let receiver_if_false = lines
             .next()
             .unwrap()
             .chars()
             .next_back()
             .unwrap()
             .to_digit(10)
-            .unwrap();
+            .unwrap()
+            .try_into()?;
 
-        let test = move |val: u128| -> usize {
-            if val % divisor as u128 == 0 {
-                if_true as _
-            } else {
-                if_false as _
-            }
-        };
-
-        Self {
+        Ok(Self {
             items,
             items_inspected: 0,
-            operation: Box::new(operation),
-            test: Box::new(test),
-        }
-    }
-}
-
-impl fmt::Debug for Monkey {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Monkey")
-            .field("items", &self.items)
-            .field("items_inspected", &self.items_inspected)
-            .finish()
+            operation: op,
+            divisor,
+            receiver_if_true,
+            receiver_if_false,
+        })
     }
 }

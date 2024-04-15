@@ -1,55 +1,81 @@
-use day11::Monkey;
+use day11::{Monkey, Result};
+use std::result;
+use std::str::FromStr;
 
-fn main() {
+fn main() -> Result<()> {
     const INPUT: &str = include_str!("../input.txt");
 
-    println!("Part 1: {}", part_1(INPUT));
+    println!("Part 1: {}", part_1(INPUT)?);
     // println!("Part 2: \n{}", part_2(INPUT));
+
+    Ok(())
 }
 
-fn part_1(input: &'static str) -> usize {
-    let mut monkeys = input.split("\n\n").map(Monkey::parse).collect::<Vec<_>>();
+fn do_round(monkeys: &mut [Monkey]) {
+    let num_monkeys = monkeys.len();
 
-    let rounds = 20;
+    for i in 0..num_monkeys {
+        let mc;
 
-    for _ in 0..rounds {
-        for m in 0..monkeys.len() {
-            while let Some(i) = monkeys[m].items.pop_front() {
-                monkeys[m].items_inspected += 1;
-                let new_val = (monkeys[m].operation)(i) / 3;
-                let throw_to = (monkeys[m].test)(new_val);
-                monkeys[throw_to].items.push_back(new_val);
+        {
+            let monkey = &mut monkeys[i];
+            mc = monkey.clone();
+            monkey.items_inspected += mc.items.len() as u64;
+        }
+
+        for mut item in mc.items.iter().copied() {
+            item = mc.operation.eval(item);
+            item /= 3;
+            if item % mc.divisor == 0 {
+                monkeys[mc.receiver_if_true].items.push(item);
+            } else {
+                monkeys[mc.receiver_if_false].items.push(item);
             }
         }
+
+        monkeys[i].items.clear();
+    }
+}
+
+fn part_1(input: &str) -> Result<u64> {
+    let mut monkeys = input
+        .split("\n\n")
+        .map(FromStr::from_str)
+        .collect::<result::Result<Vec<Monkey>, _>>()?;
+
+    for _ in 0..20 {
+        do_round(&mut monkeys);
     }
 
-    let mut items_inspected = monkeys
+    let mut all_inspect_counts = monkeys
         .iter()
         .map(|m| m.items_inspected)
         .collect::<Vec<_>>();
 
-    items_inspected.sort_by(|a, b| a.cmp(b).reverse());
+    all_inspect_counts.sort_by_key(|&c| std::cmp::Reverse(c));
 
-    items_inspected[0] * items_inspected[1]
+    let monkey_business = all_inspect_counts.into_iter().take(2).product();
+
+    Ok(monkey_business)
 }
 
-fn part_2(input: &'static str) -> usize {
-    let mut monkeys = input.split("\n\n").map(Monkey::parse).collect::<Vec<_>>();
+fn part_2(input: &str) -> Result<u64> {
+    // let mut monkeys = input.split("\n\n").map(Monkey::parse).collect::<Vec<_>>();
 
-    let rounds = 10000;
+    // let rounds = 10000;
 
-    for _ in 0..rounds {
-        for m in 0..monkeys.len() {
-            while let Some(i) = monkeys[m].items.pop_front() {
-                monkeys[m].items_inspected += 1;
-                let new_val = (monkeys[m].operation)(i);
-                let throw_to = (monkeys[m].test)(new_val);
-                monkeys[throw_to].items.push_back(new_val);
-            }
-        }
-    }
+    // for _ in 0..rounds {
+    //     for m in 0..monkeys.len() {
+    //         while let Some(i) = monkeys[m].items.pop_front() {
+    //             monkeys[m].items_inspected += 1;
+    //             let new_val = (monkeys[m].operation)(i);
+    //             let throw_to = (monkeys[m].test)(new_val);
+    //             monkeys[throw_to].items.push_back(new_val);
+    //         }
+    //     }
+    // }
 
-    dbg!(monkeys);
+    // dbg!(monkeys);
 
     unimplemented!()
 
@@ -99,11 +125,11 @@ Monkey 3:
 
     #[test]
     fn part_1_test() {
-        assert_eq!(part_1(INPUT), 10605);
+        assert_eq!(part_1(INPUT).unwrap(), 10605);
     }
 
     #[test]
     fn part_2_test() {
-        assert_eq!(part_2(INPUT), 2713310158);
+        assert_eq!(part_2(INPUT).unwrap(), 2713310158);
     }
 }
