@@ -2,16 +2,36 @@ use day11::{Monkey, Result};
 use std::result;
 use std::str::FromStr;
 
-fn main() -> Result<()> {
-    const INPUT: &str = include_str!("../input.txt");
+const INPUT: &str = include_str!("../input.txt");
 
-    println!("Part 1: {}", part_1(INPUT)?);
-    // println!("Part 2: \n{}", part_2(INPUT));
+fn main() -> Result<()> {
+    let mut monkeys = INPUT
+        .split("\n\n")
+        .map(FromStr::from_str)
+        .collect::<result::Result<Vec<Monkey>, _>>()?;
+
+    let divisor_product = monkeys.iter().map(|m| m.divisor).product::<u64>();
+    dbg!(divisor_product);
+
+    for _ in 0..10_000 {
+        do_round(&mut monkeys, divisor_product);
+    }
+
+    let mut all_inspect_counts = monkeys
+        .iter()
+        .map(|m| m.items_inspected)
+        .collect::<Vec<_>>();
+
+    all_inspect_counts.sort_by_key(|&c| std::cmp::Reverse(c));
+
+    let monkey_business = all_inspect_counts.into_iter().take(2).product::<u64>();
+
+    dbg!(monkey_business);
 
     Ok(())
 }
 
-fn do_round(monkeys: &mut [Monkey]) {
+fn do_round(monkeys: &mut [Monkey], divisor_product: u64) {
     let num_monkeys = monkeys.len();
 
     for i in 0..num_monkeys {
@@ -24,8 +44,8 @@ fn do_round(monkeys: &mut [Monkey]) {
         }
 
         for mut item in mc.items.iter().copied() {
+            item %= divisor_product;
             item = mc.operation.eval(item);
-            item /= 3;
             if item % mc.divisor == 0 {
                 monkeys[mc.receiver_if_true].items.push(item);
             } else {
@@ -34,102 +54,5 @@ fn do_round(monkeys: &mut [Monkey]) {
         }
 
         monkeys[i].items.clear();
-    }
-}
-
-fn part_1(input: &str) -> Result<u64> {
-    let mut monkeys = input
-        .split("\n\n")
-        .map(FromStr::from_str)
-        .collect::<result::Result<Vec<Monkey>, _>>()?;
-
-    for _ in 0..20 {
-        do_round(&mut monkeys);
-    }
-
-    let mut all_inspect_counts = monkeys
-        .iter()
-        .map(|m| m.items_inspected)
-        .collect::<Vec<_>>();
-
-    all_inspect_counts.sort_by_key(|&c| std::cmp::Reverse(c));
-
-    let monkey_business = all_inspect_counts.into_iter().take(2).product();
-
-    Ok(monkey_business)
-}
-
-fn part_2(input: &str) -> Result<u64> {
-    // let mut monkeys = input.split("\n\n").map(Monkey::parse).collect::<Vec<_>>();
-
-    // let rounds = 10000;
-
-    // for _ in 0..rounds {
-    //     for m in 0..monkeys.len() {
-    //         while let Some(i) = monkeys[m].items.pop_front() {
-    //             monkeys[m].items_inspected += 1;
-    //             let new_val = (monkeys[m].operation)(i);
-    //             let throw_to = (monkeys[m].test)(new_val);
-    //             monkeys[throw_to].items.push_back(new_val);
-    //         }
-    //     }
-    // }
-
-    // dbg!(monkeys);
-
-    unimplemented!()
-
-    // let mut items_inspected = monkeys
-    //     .iter()
-    //     .map(|m| m.items_inspected)
-    //     .collect::<Vec<_>>();
-
-    // items_inspected.sort_by(|a, b| a.cmp(b).reverse());
-
-    // items_inspected[0] * items_inspected[1]
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const INPUT: &str = "\
-Monkey 0:
-  Starting items: 79, 98
-  Operation: new = old * 19
-  Test: divisible by 23
-    If true: throw to monkey 2
-    If false: throw to monkey 3
-
-Monkey 1:
-  Starting items: 54, 65, 75, 74
-  Operation: new = old + 6
-  Test: divisible by 19
-    If true: throw to monkey 2
-    If false: throw to monkey 0
-
-Monkey 2:
-  Starting items: 79, 60, 97
-  Operation: new = old * old
-  Test: divisible by 13
-    If true: throw to monkey 1
-    If false: throw to monkey 3
-
-Monkey 3:
-  Starting items: 74
-  Operation: new = old + 3
-  Test: divisible by 17
-    If true: throw to monkey 0
-    If false: throw to monkey 1
-";
-
-    #[test]
-    fn part_1_test() {
-        assert_eq!(part_1(INPUT).unwrap(), 10605);
-    }
-
-    #[test]
-    fn part_2_test() {
-        assert_eq!(part_2(INPUT).unwrap(), 2713310158);
     }
 }
